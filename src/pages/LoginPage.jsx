@@ -102,7 +102,7 @@ export default function LoginPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
               <BookOpen size={20} className="text-white" />
             </div>
-            <span className="text-xl font-bold text-white">BiblioSys</span>
+            <span className="text-xl font-bold text-white">Biblioteca Grupo 4</span>
           </div>
 
           <div className="mb-8">
