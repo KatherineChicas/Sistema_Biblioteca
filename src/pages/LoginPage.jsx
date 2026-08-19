@@ -71,7 +71,7 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-5xl font-black text-white mb-4 leading-tight">
-            Biblio<span className="gradient-text">Sys</span>
+            Biblio<span className="gradient-text"> Grupo 4</span>
           </h1>
           <p className="text-slate-300 text-lg mb-3 font-medium">Sistema de Gestión de Biblioteca</p>
           <p className="text-slate-500 text-sm max-w-sm">
