@@ -6,8 +6,8 @@ import { useAuth, ROLES } from "../context/AuthContext";
 // Credenciales de demo para mostrar al usuario
 const DEMO_CREDENTIALS = [
   { role: "Administrador", email: "admin@biblioteca.edu", password: "admin123", color: "from-violet-500 to-indigo-600" },
-  { role: "Bibliotecario", email: "maria@biblioteca.edu", password: "biblio123", color: "from-emerald-500 to-teal-600" },
-  { role: "Usuario",       email: "ana@universidad.edu",  password: "user123",   color: "from-sky-500 to-blue-600" },
+  { role: "Bibliotecario", email: "harold@biblioteca.edu", password: "harold123", color: "from-emerald-500 to-teal-600" },
+  { role: "Usuario",       email: "diego@unitec.edu",  password: "diego123",   color: "from-sky-500 to-blue-600" },
 ];
 
 const ROLE_REDIRECTS = {

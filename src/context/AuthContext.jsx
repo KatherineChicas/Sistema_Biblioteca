@@ -20,13 +20,13 @@ const MOCK_USERS = {
     id: 6, name: "Admin Sistema", email: "admin@biblioteca.edu",
     role: ROLES.ADMIN, avatar: "AS", password: "admin123"
   },
-  "maria@biblioteca.edu": {
-    id: 3, name: "María Fernández", email: "maria@biblioteca.edu",
-    role: ROLES.LIBRARIAN, avatar: "MF", password: "biblio123"
+  "harold@biblioteca.edu": {
+    id: 3, name: "Harold Espinal", email: "harold@biblioteca.edu",
+    role: ROLES.LIBRARIAN, avatar: "HE", password: "harold123"
   },
-  "ana@universidad.edu": {
-    id: 1, name: "Ana García López", email: "ana@universidad.edu",
-    role: ROLES.USER, avatar: "AG", password: "user123"
+  "diego@unitec.edu": {
+    id: 1, name: "Diego Mantilla", email: "diego@unitec.edu",
+    role: ROLES.USER, avatar: "DM", password: "diego123"
   },
 };
 
