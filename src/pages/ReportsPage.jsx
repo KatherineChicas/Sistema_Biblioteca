@@ -16,7 +16,7 @@ function CustomTooltip({ active, payload, label }) {
         <div key={p.name} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
           <span className="text-slate-400">{p.name}:</span>
-          <span className="text-white font-semibold">{p.name.includes("$") || p.dataKey === "sales" ? `$${Number(p.value).toLocaleString()}` : p.value}</span>
+          <span className="text-white font-semibold">{p.dataKey === "sales" ? `L ${Number(p.value).toLocaleString()}` : p.value}</span>
         </div>
       ))}
     </div>
@@ -58,10 +58,10 @@ export default function ReportsPage() {
       {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label:"Ingresos totales",  value:`$${mockMetrics.totalRevenue.toLocaleString()}`, sub:"Este mes", color:"text-indigo-400", bg:"bg-indigo-500/10" },
-          { label:"Por ventas",        value:`$${mockMetrics.monthlySales.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlySales/mockMetrics.totalRevenue*100)}%`, color:"text-violet-400", bg:"bg-violet-500/10" },
-          { label:"Por rentas",        value:`$${mockMetrics.monthlyRentals.toLocaleString()}`,sub:`${Math.round(mockMetrics.monthlyRentals/mockMetrics.totalRevenue*100)}%`, color:"text-emerald-400", bg:"bg-emerald-500/10" },
-          { label:"Por multas",        value:`$${mockMetrics.monthlyFines.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlyFines/mockMetrics.totalRevenue*100)}%`, color:"text-amber-400", bg:"bg-amber-500/10" },
+          { label:"Ingresos totales",  value:`L ${mockMetrics.totalRevenue.toLocaleString()}`, sub:"Este mes", color:"text-indigo-400", bg:"bg-indigo-500/10" },
+          { label:"Por ventas",        value:`L ${mockMetrics.monthlySales.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlySales/mockMetrics.totalRevenue*100)}%`, color:"text-violet-400", bg:"bg-violet-500/10" },
+          { label:"Por rentas",        value:`L ${mockMetrics.monthlyRentals.toLocaleString()}`,sub:`${Math.round(mockMetrics.monthlyRentals/mockMetrics.totalRevenue*100)}%`, color:"text-emerald-400", bg:"bg-emerald-500/10" },
+          { label:"Por multas",        value:`L ${mockMetrics.monthlyFines.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlyFines/mockMetrics.totalRevenue*100)}%`, color:"text-amber-400", bg:"bg-amber-500/10" },
         ].map((kpi) => (
           <div key={kpi.label} className={`glass-card p-4 border border-white/6`}>
             <div className={`w-9 h-9 ${kpi.bg} rounded-xl flex items-center justify-center mb-3`}>
@@ -91,7 +91,7 @@ export default function ReportsPage() {
             <YAxis tick={{ fontSize:11, fill:"#64748b" }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize:"11px", color:"#94a3b8" }} />
-            <Area type="monotone" dataKey="sales" name="Ventas $" stroke="#6366f1" strokeWidth={2.5} fill="url(#salesGrad)" />
+            <Area type="monotone" dataKey="sales" name="Ventas (L)" stroke="#6366f1" strokeWidth={2.5} fill="url(#salesGrad)" />
             <Line type="monotone" dataKey="loans" name="Préstamos" stroke="#22c55e" strokeWidth={2} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
@@ -141,7 +141,7 @@ export default function ReportsPage() {
                       <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.fill }} />
                       <span className="text-xs text-slate-300">{item.name}</span>
                     </div>
-                    <span className="text-xs font-bold text-slate-200">${item.value.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-slate-200">L {item.value.toLocaleString()}</span>
                   </div>
                   <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                     <div

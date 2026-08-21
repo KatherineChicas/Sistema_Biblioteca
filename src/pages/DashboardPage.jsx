@@ -58,7 +58,7 @@ function CustomTooltip({ active, payload, label }) {
           <span className="text-slate-400">{p.name}:</span>
           <span className="text-white font-semibold">
             {typeof p.value === "number" && p.name?.toLowerCase().includes("venta")
-              ? `$${p.value.toLocaleString()}`
+              ? `L ${p.value.toLocaleString()}`
               : p.value}
           </span>
         </div>
@@ -115,7 +115,7 @@ function OverdueLoanRow({ loan }) {
         </span>
       </td>
       <td className="py-3">
-        <span className="text-xs font-semibold text-amber-400">${loan.fine.toFixed(2)}</span>
+        <span className="text-xs font-semibold text-amber-400">L {loan.fine.toFixed(2)}</span>
       </td>
     </tr>
   );
@@ -144,15 +144,15 @@ export default function DashboardPage() {
       subtitle: "Requieren atención", trend: "-12%", trendUp: false, color: "red",   delay: 300,
     },
     {
-      icon: DollarSign, label: "Ingresos Ventas",  value: `$${mockMetrics.monthlySales.toLocaleString()}`,
+      icon: DollarSign, label: "Ingresos Ventas",  value: `L ${mockMetrics.monthlySales.toLocaleString()}`,
       subtitle: "Este mes",        trend: "+15%",  trendUp: true,  color: "indigo",  delay: 400,
     },
     {
-      icon: Clock,     label: "Ingresos Rentas",   value: `$${mockMetrics.monthlyRentals.toLocaleString()}`,
+      icon: Clock,     label: "Ingresos Rentas",   value: `L ${mockMetrics.monthlyRentals.toLocaleString()}`,
       subtitle: "Este mes",        trend: "+7.2%", trendUp: true,  color: "sky",     delay: 500,
     },
     {
-      icon: TrendingUp, label: "Multas Cobradas",  value: `$${mockMetrics.monthlyFines.toLocaleString()}`,
+      icon: TrendingUp, label: "Multas Cobradas",  value: `L ${mockMetrics.monthlyFines.toLocaleString()}`,
       subtitle: "Este mes",        trend: "-5%",   trendUp: false, color: "amber",   delay: 600,
     },
     {
@@ -167,7 +167,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">
-            ¡Hola, {user?.name?.split(" ")[0]}! 👋
+            Hola, {user?.name?.split(" ")[0]}
           </h1>
           <p className="text-slate-400 text-sm">
             Resumen del Sistema — {new Date().toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
@@ -237,7 +237,7 @@ export default function DashboardPage() {
                   <span className="text-xs text-slate-400">{item.name}</span>
                 </div>
                 <span className="text-xs font-semibold text-slate-200">
-                  ${item.value.toLocaleString()}
+                  L {item.value.toLocaleString()}
                 </span>
               </div>
             ))}
@@ -251,7 +251,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 glass-card p-5">
           <div className="mb-5">
             <h2 className="text-base font-semibold text-white">Ventas Mensuales</h2>
-            <p className="text-xs text-slate-500">Ingresos por ventas (MXN)</p>
+            <p className="text-xs text-slate-500">Ingresos por ventas (HNL)</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={mockChartData.loansByMonth} margin={{ top:5, right:5, bottom:5, left:-10 }}>

@@ -47,7 +47,7 @@ function UserRow({ user }) {
       <td className="px-4 py-3.5 text-xs text-slate-400">{user.loans}</td>
       <td className="px-4 py-3.5">
         <span className={`text-xs font-semibold ${user.fines > 0 ? "text-amber-400" : "text-slate-500"}`}>
-          {user.fines > 0 ? `$${user.fines.toFixed(2)}` : "—"}
+          {user.fines > 0 ? `L ${user.fines.toFixed(2)}` : "—"}
         </span>
       </td>
       <td className="px-4 py-3.5 text-xs text-slate-500">{user.joined}</td>

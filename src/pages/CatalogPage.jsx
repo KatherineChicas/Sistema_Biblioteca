@@ -139,7 +139,7 @@ function BookDetailModal({ book, onClose }) {
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
               >
                 <Clock size={16} />
-                Rentar · ${book.rentalPrice.toFixed(2)}/sem
+                Rentar · L {book.rentalPrice.toFixed(2)}/sem
               </button>
             )}
             {book.canBuy && (
@@ -148,7 +148,7 @@ function BookDetailModal({ book, onClose }) {
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20"
               >
                 <ShoppingCart size={16} />
-                Comprar · ${book.price.toFixed(2)}
+                Comprar · L {book.price.toFixed(2)}
               </button>
             )}
           </div>
@@ -213,12 +213,12 @@ function BookCard({ book, onView }) {
         <div className="flex items-center gap-3 mb-3 mt-auto">
           <div className="text-center">
             <p className="text-xs text-slate-500">Compra</p>
-            <p className="text-sm font-bold text-indigo-300">${book.price.toFixed(2)}</p>
+            <p className="text-sm font-bold text-indigo-300">L {book.price.toFixed(2)}</p>
           </div>
           <div className="w-px h-8 bg-white/10" />
           <div className="text-center">
             <p className="text-xs text-slate-500">Renta/sem</p>
-            <p className="text-sm font-bold text-emerald-400">${book.rentalPrice.toFixed(2)}</p>
+            <p className="text-sm font-bold text-emerald-400">L {book.rentalPrice.toFixed(2)}</p>
           </div>
         </div>
 
@@ -267,11 +267,11 @@ function BookRow({ book, onView }) {
       <div className="hidden md:flex items-center gap-6 text-center">
         <div>
           <p className="text-xs text-slate-500">Compra</p>
-          <p className="text-sm font-bold text-indigo-300">${book.price.toFixed(2)}</p>
+          <p className="text-sm font-bold text-indigo-300">L {book.price.toFixed(2)}</p>
         </div>
         <div>
           <p className="text-xs text-slate-500">Renta</p>
-          <p className="text-sm font-bold text-emerald-400">${book.rentalPrice.toFixed(2)}</p>
+          <p className="text-sm font-bold text-emerald-400">L {book.rentalPrice.toFixed(2)}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

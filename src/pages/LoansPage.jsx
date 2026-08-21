@@ -92,7 +92,7 @@ function NewLoanModal({ onClose }) {
                 {selectedUser.fines > 0 && (
                   <div className="mt-3 flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 rounded-lg p-2">
                     <AlertTriangle size={12} />
-                    Multa pendiente: ${selectedUser.fines.toFixed(2)}
+                    Multa pendiente: L {selectedUser.fines.toFixed(2)}
                   </div>
                 )}
               </div>
@@ -305,7 +305,7 @@ export default function LoansPage() {
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={`text-xs font-semibold ${loan.fine > 0 ? "text-amber-400" : "text-slate-500"}`}>
-                      {loan.fine > 0 ? `$${loan.fine.toFixed(2)}` : "—"}
+                      {loan.fine > 0 ? `L ${loan.fine.toFixed(2)}` : "—"}
                     </span>
                   </td>
                   <td className="px-4 py-3.5">

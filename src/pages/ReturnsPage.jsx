@@ -6,7 +6,7 @@ import {
 import { mockLoans } from "../data/mockData";
 
 // Tarifa de multa por día
-const FINE_RATE = 5.00; // $5 MXN por día de retraso
+const FINE_RATE = 6.50; // L 6.50 HNL por día de retraso
 
 function calcFine(daysOverdue) {
   return daysOverdue * FINE_RATE;
@@ -47,7 +47,7 @@ function ReturnForm() {
 
   // Calcular días de retraso y multa al momento de la devolución
   const daysOverdue = foundLoan?.daysOverdue ?? 0;
-  const conditionFine = condition === "damaged" ? 150.00 : condition === "lost" ? 400.00 : 0;
+  const conditionFine = condition === "damaged" ? 200.00 : condition === "lost" ? 520.00 : 0;
   const totalFine = calcFine(daysOverdue) + conditionFine;
 
   if (confirmed) {
@@ -60,7 +60,7 @@ function ReturnForm() {
         <p className="text-slate-400 text-sm mb-1">Folio: <span className="text-indigo-400 font-mono">{foundLoan.id}</span></p>
         <p className="text-slate-400 text-sm mb-6">
           {totalFine > 0
-            ? <>Multa cobrada: <span className="text-amber-400 font-semibold">${totalFine.toFixed(2)}</span></>
+            ? <>Multa cobrada: <span className="text-amber-400 font-semibold">L {totalFine.toFixed(2)}</span></>
             : "Sin multas pendientes"
           }
         </p>
@@ -155,7 +155,7 @@ function ReturnForm() {
                 <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-red-400">Préstamo Vencido</p>
-                  <p className="text-xs text-slate-400">{foundLoan.daysOverdue} días de retraso · ${calcFine(foundLoan.daysOverdue).toFixed(2)} en multa base</p>
+                  <p className="text-xs text-slate-400">{foundLoan.daysOverdue} días de retraso · L {calcFine(foundLoan.daysOverdue).toFixed(2)} en multa base</p>
                 </div>
               </div>
             )}
@@ -166,8 +166,8 @@ function ReturnForm() {
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { key:"good",    label:"Buen estado",  extra:"Sin cargo adicional", color:"emerald" },
-                  { key:"damaged", label:"Dañado",        extra:"+$150.00",            color:"amber" },
-                  { key:"lost",    label:"Extraviado",    extra:"+$400.00",             color:"red" },
+                  { key:"damaged", label:"Dañado",        extra:"+L 200.00",           color:"amber" },
+                  { key:"lost",    label:"Extraviado",    extra:"+L 520.00",            color:"red" },
                 ].map((opt) => (
                   <button
                     key={opt.key}
@@ -196,20 +196,20 @@ function ReturnForm() {
               </p>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between text-slate-400">
-                  <span>Multa por retraso ({foundLoan.daysOverdue} días × ${FINE_RATE})</span>
-                  <span className="text-slate-200">${calcFine(daysOverdue).toFixed(2)}</span>
+                  <span>Multa por retraso ({foundLoan.daysOverdue} días × L {FINE_RATE.toFixed(2)})</span>
+                  <span className="text-slate-200">L {calcFine(daysOverdue).toFixed(2)}</span>
                 </div>
                 {conditionFine > 0 && (
                   <div className="flex justify-between text-slate-400">
                     <span>Cargo por condición ({condition === "damaged" ? "Daño" : "Extravío"})</span>
-                    <span className="text-amber-400">${conditionFine.toFixed(2)}</span>
+                    <span className="text-amber-400">L {conditionFine.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="h-px bg-white/10 my-1" />
                 <div className="flex justify-between font-semibold text-sm">
                   <span className="text-slate-300">Total a cobrar</span>
                   <span className={totalFine > 0 ? "text-amber-400" : "text-emerald-400"}>
-                    ${totalFine.toFixed(2)}
+                    L {totalFine.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -224,7 +224,7 @@ function ReturnForm() {
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-60"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-            Confirmar Devolución{totalFine > 0 && ` · Cobrar $${totalFine.toFixed(2)}`}
+            Confirmar Devolución{totalFine > 0 && ` · Cobrar L ${totalFine.toFixed(2)}`}
           </button>
         </>
       )}
@@ -249,7 +249,7 @@ export default function ReturnsPage() {
         {[
           { label:"Vencidos pendientes", value: overdueCount, color:"text-red-400",    bg:"bg-red-500/10",     icon: AlertTriangle },
           { label:"Devueltos hoy",       value: returnedToday,color:"text-emerald-400",bg:"bg-emerald-500/10", icon: CheckCircle2  },
-          { label:"Tarifa de multa",     value:"$5 / día",    color:"text-amber-400",  bg:"bg-amber-500/10",   icon: DollarSign    },
+          { label:"Tarifa de multa",     value:"L 6.50 / día", color:"text-amber-400",  bg:"bg-amber-500/10",   icon: DollarSign    },
         ].map((s) => (
           <div key={s.label} className="glass-card p-4 flex items-center gap-3">
             <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center flex-shrink-0`}>

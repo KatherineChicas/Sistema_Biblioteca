@@ -188,7 +188,7 @@ export default function LoginPage() {
           {/* Demo Credentials */}
           <div className="mt-8">
             <p className="text-xs text-slate-500 text-center mb-3 uppercase tracking-wider">
-              — Acceso rápido (Demo) —
+              — Acceso rápido —
             </p>
             <div className="space-y-2">
               {DEMO_CREDENTIALS.map((cred) => (
