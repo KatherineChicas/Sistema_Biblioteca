@@ -3,17 +3,26 @@ import {
   Search, AlertTriangle, CheckCircle2, Clock,
   BookOpen, DollarSign, Calendar, Hash, ArrowRight, Loader2,
 } from "lucide-react";
-import { mockLoans } from "../data/mockData";
+import { useLibraryStore, loanStatus, daysOverdue as calcDaysOverdue } from "../store/useLibraryStore";
+import { useAuth } from "../context/AuthContext";
 
-// Tarifa de multa por día
-const FINE_RATE = 6.50; // L 6.50 HNL por día de retraso
-
-function calcFine(daysOverdue) {
-  return daysOverdue * FINE_RATE;
+// Las tarifas ahora vienen de la configuración global (6.2)
+function useActiveLoans() {
+  return useLibraryStore((s) => s.loans)
+    .filter((l) => !l.returnDate)
+    .map((l) => ({ ...l, status: loanStatus(l), daysOverdue: calcDaysOverdue(l) }));
 }
 
 // ─── ReturnForm ───────────────────────────────────────────────────────────
 function ReturnForm() {
+  const settings = useLibraryStore((s) => s.settings);
+  const registerReturn = useLibraryStore((s) => s.registerReturn);
+  const notify = useLibraryStore((s) => s.notify);
+  const { user } = useAuth();
+  const mockLoans = useActiveLoans();
+  const FINE_RATE = settings.fineRate;
+  const calcFine = (d) => d * FINE_RATE;
+  const [result, setResult] = useState(null);
   const [loanId, setLoanId]         = useState("");
   const [foundLoan, setFoundLoan]   = useState(null);
   const [notFound, setNotFound]     = useState(false);
@@ -35,20 +44,24 @@ function ReturnForm() {
 
   const handleConfirm = async () => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setConfirmed(true);
+    await new Promise((r) => setTimeout(r, 400));
+    const r = registerReturn(foundLoan.id, condition, user?.name);
     setLoading(false);
+    if (r.error) { notify(r.error, "error"); return; }
+    setResult(r);
+    setConfirmed(true);
+    notify(`Devolución de ${foundLoan.id} registrada`);
   };
 
   const handleReset = () => {
     setLoanId(""); setFoundLoan(null); setNotFound(false);
-    setCondition("good"); setConfirmed(false);
+    setCondition("good"); setConfirmed(false); setResult(null);
   };
 
   // Calcular días de retraso y multa al momento de la devolución
   const daysOverdue = foundLoan?.daysOverdue ?? 0;
-  const conditionFine = condition === "damaged" ? 200.00 : condition === "lost" ? 520.00 : 0;
-  const totalFine = calcFine(daysOverdue) + conditionFine;
+  const conditionFine = condition === "damaged" ? settings.damageFee : condition === "lost" ? settings.lostFee : 0;
+  const totalFine = result ? result.total : calcFine(daysOverdue) + conditionFine;
 
   if (confirmed) {
     return (
@@ -60,7 +73,7 @@ function ReturnForm() {
         <p className="text-slate-400 text-sm mb-1">Folio: <span className="text-indigo-400 font-mono">{foundLoan.id}</span></p>
         <p className="text-slate-400 text-sm mb-6">
           {totalFine > 0
-            ? <>Multa cobrada: <span className="text-amber-400 font-semibold">L {totalFine.toFixed(2)}</span></>
+            ? <>Multa registrada (pendiente de pago en Multas): <span className="text-amber-400 font-semibold">L {totalFine.toFixed(2)}</span></>
             : "Sin multas pendientes"
           }
         </p>
@@ -88,7 +101,7 @@ function ReturnForm() {
               value={loanId}
               onChange={(e) => setLoanId(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Folio del préstamo (ej. L-2024-001)"
+              placeholder="Folio del préstamo (ej. L-0002)"
               className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
             />
           </div>
@@ -166,8 +179,8 @@ function ReturnForm() {
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { key:"good",    label:"Buen estado",  extra:"Sin cargo adicional", color:"emerald" },
-                  { key:"damaged", label:"Dañado",        extra:"+L 200.00",           color:"amber" },
-                  { key:"lost",    label:"Extraviado",    extra:"+L 520.00",            color:"red" },
+                  { key:"damaged", label:"Dañado",        extra:`+L ${settings.damageFee.toFixed(2)}`,           color:"amber" },
+                  { key:"lost",    label:"Extraviado",    extra:`+L ${settings.lostFee.toFixed(2)}`,            color:"red" },
                 ].map((opt) => (
                   <button
                     key={opt.key}
@@ -234,8 +247,10 @@ function ReturnForm() {
 
 // ─── ReturnsPage ──────────────────────────────────────────────────────────
 export default function ReturnsPage() {
-  const overdueCount = mockLoans.filter((l) => l.status === "overdue").length;
-  const returnedToday = mockLoans.filter((l) => l.status === "returned").length;
+  const loans = useLibraryStore((s) => s.loans);
+  const fineRate = useLibraryStore((s) => s.settings.fineRate);
+  const overdueCount = loans.filter((l) => loanStatus(l) === "overdue").length;
+  const returnedToday = loans.filter((l) => l.returnDate === new Date().toISOString().slice(0, 10)).length;
 
   return (
     <div className="space-y-6">
@@ -249,7 +264,7 @@ export default function ReturnsPage() {
         {[
           { label:"Vencidos pendientes", value: overdueCount, color:"text-red-400",    bg:"bg-red-500/10",     icon: AlertTriangle },
           { label:"Devueltos hoy",       value: returnedToday,color:"text-emerald-400",bg:"bg-emerald-500/10", icon: CheckCircle2  },
-          { label:"Tarifa de multa",     value:"L 6.50 / día", color:"text-amber-400",  bg:"bg-amber-500/10",   icon: DollarSign    },
+          { label:"Tarifa de multa",     value:`L ${fineRate.toFixed(2)} / día`, color:"text-amber-400",  bg:"bg-amber-500/10",   icon: DollarSign    },
         ].map((s) => (
           <div key={s.label} className="glass-card p-4 flex items-center gap-3">
             <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center flex-shrink-0`}>

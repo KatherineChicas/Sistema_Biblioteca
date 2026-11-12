@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from "react";
+import { useLibraryStore } from "../store/useLibraryStore";
 
 // ─── Auth Context ─────────────────────────────────────────────────────────
 const AuthContext = createContext(null);
@@ -15,35 +16,38 @@ export const ROLES = {
   USER: "usuario",
 };
 
-const MOCK_USERS = {
-  "admin@biblioteca.edu": {
-    id: 6, name: "Admin Sistema", email: "admin@biblioteca.edu",
-    role: ROLES.ADMIN, avatar: "AS", password: "admin123"
-  },
-  "harold@biblioteca.edu": {
-    id: 3, name: "Harold Espinal", email: "harold@biblioteca.edu",
-    role: ROLES.LIBRARIAN, avatar: "HE", password: "harold123"
-  },
-  "diego@unitec.edu": {
-    id: 1, name: "Diego Mantilla", email: "diego@unitec.edu",
-    role: ROLES.USER, avatar: "DM", password: "diego123"
-  },
-};
+const SESSION_KEY = "bibliosys-session";
+
+function readSession() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); } catch { return null; }
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [sessionId, setSessionId] = useState(() => readSession());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]   = useState(null);
+  const users = useLibraryStore((s) => s.users);
+  const log = useLibraryStore((s) => s.log);
 
-  // Simula una llamada a la API de autenticación
+  // El usuario siempre se lee del store, así los cambios de rol/estado se reflejan al instante
+  const user = users.find((u) => u.id === sessionId) ?? null;
+
+  // Simula una llamada a la API de autenticación (1.1 / 1.2)
   const login = async (email, password) => {
     setIsLoading(true);
     setError(null);
-    await new Promise((r) => setTimeout(r, 800)); // Simular latencia
+    await new Promise((r) => setTimeout(r, 600)); // Simular latencia
 
-    const found = MOCK_USERS[email.toLowerCase()];
+    const found = users.find((u) => u.email === email.trim().toLowerCase());
     if (found && found.password === password) {
-      setUser(found);
+      if (found.status !== "activo") {
+        setError("Tu cuenta está suspendida. Contacta a la biblioteca.");
+        setIsLoading(false);
+        return { success: false };
+      }
+      setSessionId(found.id);
+      try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(found.id)); } catch { /* sin almacenamiento */ }
+      log(found.name, "INICIO_SESION", found.email);
       setIsLoading(false);
       return { success: true };
     }
@@ -52,12 +56,16 @@ export function AuthProvider({ children }) {
     return { success: false };
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    if (user) log(user.name, "CIERRE_SESION", user.email);
+    setSessionId(null);
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* sin almacenamiento */ }
+  };
 
   const hasRole = (...roles) => roles.includes(user?.role);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, error, hasRole }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, error, setError, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

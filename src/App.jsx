@@ -8,6 +8,12 @@ import LoansPage    from "./pages/LoansPage";
 import ReturnsPage  from "./pages/ReturnsPage";
 import ReportsPage  from "./pages/ReportsPage";
 import AdminPage    from "./pages/AdminPage";
+import UsersPage    from "./pages/UsersPage";
+import FinesPage    from "./pages/FinesPage";
+import MyLoansPage  from "./pages/MyLoansPage";
+import SalesPage    from "./pages/SalesPage";
+import SettingsPage from "./pages/SettingsPage";
+import { Toaster }  from "./components/ui";
 
 // ─── Ruta protegida ───────────────────────────────────────────────────────
 function ProtectedRoute({ children, roles }) {
@@ -18,9 +24,9 @@ function ProtectedRoute({ children, roles }) {
 }
 
 // ─── Layout wrapper for protected pages ──────────────────────────────────
-function AppLayout({ children }) {
+function AppLayout({ children, roles }) {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute roles={roles}>
       <Layout>{children}</Layout>
     </ProtectedRoute>
   );
@@ -30,6 +36,7 @@ function AppLayout({ children }) {
 function AppRouter() {
   const { user } = useAuth();
 
+  const STAFF = [ROLES.ADMIN, ROLES.LIBRARIAN];
   return (
     <Routes>
       {/* Public */}
@@ -40,16 +47,16 @@ function AppRouter() {
 
       {/* Protected – Admin + Librarian */}
       <Route path="/dashboard" element={
-        <AppLayout><DashboardPage /></AppLayout>
+        <AppLayout roles={STAFF}><DashboardPage /></AppLayout>
       } />
       <Route path="/loans" element={
-        <AppLayout><LoansPage /></AppLayout>
+        <AppLayout roles={STAFF}><LoansPage /></AppLayout>
       } />
       <Route path="/returns" element={
-        <AppLayout><ReturnsPage /></AppLayout>
+        <AppLayout roles={STAFF}><ReturnsPage /></AppLayout>
       } />
       <Route path="/reports" element={
-        <AppLayout><ReportsPage /></AppLayout>
+        <AppLayout roles={STAFF}><ReportsPage /></AppLayout>
       } />
       <Route path="/admin" element={
         <ProtectedRoute roles={[ROLES.ADMIN]}>
@@ -62,6 +69,13 @@ function AppRouter() {
         <AppLayout><CatalogPage /></AppLayout>
       } />
 
+      {/* Nuevas rutas (antes enlaces rotos del menú) */}
+      <Route path="/users"    element={<AppLayout roles={STAFF}><UsersPage /></AppLayout>} />
+      <Route path="/fines"    element={<AppLayout roles={STAFF}><FinesPage /></AppLayout>} />
+      <Route path="/settings" element={<AppLayout roles={[ROLES.ADMIN]}><SettingsPage /></AppLayout>} />
+      <Route path="/sales"    element={<AppLayout><SalesPage /></AppLayout>} />
+      <Route path="/my-loans" element={<AppLayout roles={[ROLES.USER]}><MyLoansPage /></AppLayout>} />
+
       {/* Fallback */}
       <Route path="*" element={<Navigate to={user ? "/catalog" : "/login"} replace />} />
     </Routes>
@@ -73,6 +87,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRouter />
+        <Toaster />
       </AuthProvider>
     </BrowserRouter>
   );

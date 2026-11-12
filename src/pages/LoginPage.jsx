@@ -2,6 +2,33 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, BookOpen, Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 import { useAuth, ROLES } from "../context/AuthContext";
+import { useLibraryStore, computeMetrics } from "../store/useLibraryStore";
+import { Modal, Field, inputCls, Button } from "../components/ui";
+import { UserFormModal } from "./UsersPage";
+
+// Restablecimiento de contraseña (requerimiento 1.4) – simulado: muestra la clave temporal
+function ForgotPasswordModal({ onClose }) {
+  const [email, setEmail] = useState("");
+  const [result, setResult] = useState(null);
+  const resetPassword = useLibraryStore((s) => s.resetPassword);
+  return (
+    <Modal title="Restablecer contraseña" onClose={onClose}>
+      {result?.temp ? (
+        <div className="space-y-3">
+          <p className="text-sm text-slate-300">En un entorno real se enviaría un correo a <b>{email}</b>. Para esta demo, tu contraseña temporal es:</p>
+          <p className="font-mono text-lg text-amber-300 bg-white/5 rounded-xl p-3 text-center">{result.temp}</p>
+          <Button className="w-full" onClick={onClose}>Volver al inicio de sesión</Button>
+        </div>
+      ) : (
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); setResult(resetPassword(email)); }}>
+          <Field label="Correo de tu cuenta"><input type="email" required className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+          {result?.error && <p className="text-xs text-red-400 bg-red-500/10 rounded-lg p-2.5">{result.error}</p>}
+          <Button type="submit" className="w-full">Generar contraseña temporal</Button>
+        </form>
+      )}
+    </Modal>
+  );
+}
 
 // Credenciales de demo para mostrar al usuario
 const DEMO_CREDENTIALS = [
@@ -22,6 +49,9 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const { login, isLoading, error } = useAuth();
   const navigate = useNavigate();
+  const [modal, setModal] = useState(null); // "forgot" | "register"
+  const metrics = computeMetrics(useLibraryStore());
+  const notify = useLibraryStore((s) => s.notify);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,9 +111,9 @@ export default function LoginPage() {
           {/* Stats chips */}
           <div className="flex gap-4 mt-10">
             {[
-              { label: "Libros", value: "1,247" },
-              { label: "Usuarios", value: "342" },
-              { label: "Préstamos", value: "89" },
+              { label: "Libros", value: metrics.totalBooks },
+              { label: "Usuarios", value: metrics.activeUsers },
+              { label: "Préstamos", value: metrics.activeLoans },
             ].map((s) => (
               <div key={s.label} className="glass-card px-4 py-3 text-center">
                 <p className="text-2xl font-bold text-indigo-300">{s.value}</p>
@@ -184,6 +214,18 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <div className="flex justify-between mt-4 text-xs">
+            <button id="forgot-btn" onClick={() => setModal("forgot")} className="text-slate-400 hover:text-indigo-300">¿Olvidaste tu contraseña?</button>
+            <button id="register-btn" onClick={() => setModal("register")} className="text-indigo-400 hover:text-indigo-300 font-medium">Crear cuenta nueva</button>
+          </div>
+          {modal === "forgot" && <ForgotPasswordModal onClose={() => setModal(null)} />}
+          {modal === "register" && (
+            <UserFormModal allowRole={false} onClose={(u) => {
+              setModal(null);
+              if (u) { setEmail(u.email); notify("Cuenta creada. Ya puedes iniciar sesión."); }
+            }} />
+          )}
 
           {/* Demo Credentials */}
           <div className="mt-8">

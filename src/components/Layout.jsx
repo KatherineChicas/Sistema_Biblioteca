@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useLibraryStore, loanStatus } from "../store/useLibraryStore";
 import {
   BookOpen, LayoutDashboard, Users, ShoppingCart, RotateCcw,
   BarChart3, Settings, LogOut, Menu, X, Bell, Search,
@@ -12,9 +13,10 @@ const NAV_CONFIG = {
   [ROLES.ADMIN]: [
     { to: "/dashboard",    label: "Dashboard",     icon: LayoutDashboard, badge: null },
     { to: "/catalog",      label: "Catálogo",      icon: BookOpen,        badge: null },
-    { to: "/loans",        label: "Préstamos",     icon: BookMarked,      badge: 3 },
+    { to: "/loans",        label: "Préstamos",     icon: BookMarked,      badge: "overdue" },
     { to: "/returns",      label: "Devoluciones",  icon: RotateCcw,       badge: null },
     { to: "/sales",        label: "Ventas",        icon: ShoppingCart,    badge: null },
+    { to: "/fines",        label: "Multas",        icon: AlertTriangle,   badge: "fines" },
     { to: "/reports",      label: "Informes",      icon: BarChart3,       badge: null },
     { to: "/users",        label: "Usuarios",      icon: Users,           badge: null },
     { to: "/admin",        label: "Administración",icon: Shield,          badge: null },
@@ -22,14 +24,15 @@ const NAV_CONFIG = {
   ],
   [ROLES.LIBRARIAN]: [
     { to: "/catalog",      label: "Catálogo",      icon: BookOpen,        badge: null },
-    { to: "/loans",        label: "Préstamos",     icon: BookMarked,      badge: 3 },
+    { to: "/loans",        label: "Préstamos",     icon: BookMarked,      badge: "overdue" },
     { to: "/returns",      label: "Devoluciones",  icon: RotateCcw,       badge: null },
-    { to: "/fines",        label: "Multas",        icon: AlertTriangle,   badge: 2 },
+    { to: "/fines",        label: "Multas",        icon: AlertTriangle,   badge: "fines" },
+    { to: "/reports",      label: "Informes",      icon: BarChart3,       badge: null },
     { to: "/users",        label: "Usuarios",      icon: Users,           badge: null },
   ],
   [ROLES.USER]: [
     { to: "/catalog",      label: "Catálogo",      icon: BookOpen,        badge: null },
-    { to: "/my-loans",     label: "Mis Préstamos", icon: BookMarked,      badge: null },
+    { to: "/my-loans",     label: "Mis Préstamos", icon: BookMarked,      badge: "mine" },
     { to: "/sales",        label: "Mis Compras",   icon: ShoppingCart,    badge: null },
   ],
 };
@@ -47,7 +50,20 @@ const ROLE_LABELS = {
 };
 
 // ─── Sidebar Item ────────────────────────────────────────────────────────
-function SidebarItem({ item, collapsed, onClick }) {
+function useBadgeCounts() {
+  const loans = useLibraryStore((s) => s.loans);
+  const fines = useLibraryStore((s) => s.fines);
+  const sessionUser = useAuth().user;
+  return {
+    overdue: loans.filter((l) => loanStatus(l) === "overdue").length,
+    fines: fines.filter((f) => !f.paid).length,
+    mine: loans.filter((l) => l.userId === sessionUser?.id && !l.returnDate).length,
+  };
+}
+
+function SidebarItem({ item: rawItem, collapsed, onClick }) {
+  const counts = useBadgeCounts();
+  const item = { ...rawItem, badge: rawItem.badge ? counts[rawItem.badge] || null : null };
   const Icon = item.icon;
   return (
     <NavLink
@@ -204,9 +220,31 @@ function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }) {
 }
 
 // ─── Topbar / Navbar ─────────────────────────────────────────────────────
-function Topbar({ onMobileMenuOpen, collapsed }) {
+function Topbar({ onMobileMenuOpen }) {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [openBell, setOpenBell] = useState(false);
+  const navigate = useNavigate();
+  const loans = useLibraryStore((s) => s.loans);
+  const fines = useLibraryStore((s) => s.fines);
+  const isUser = user?.role === ROLES.USER;
+  const myLoans = isUser ? loans.filter((l) => l.userId === user.id) : loans;
+  const overdue = myLoans.filter((l) => loanStatus(l) === "overdue");
+  const dueSoon = myLoans.filter((l) => {
+    if (l.returnDate || loanStatus(l) === "overdue") return false;
+    return (new Date(l.dueDate) - Date.now()) / 86400000 <= 2;
+  });
+  const pendingFines = fines.filter((f) => !f.paid && (!isUser || f.userId === user.id));
+  const notifications = [
+    ...overdue.map((l) => ({ key: l.id, text: `${l.id} vencido: ${l.bookTitle}${isUser ? "" : ` (${l.userName})`}`, to: isUser ? "/my-loans" : "/returns", tone: "text-red-400" })),
+    ...dueSoon.map((l) => ({ key: l.id + "s", text: `${l.bookTitle} vence el ${l.dueDate}`, to: isUser ? "/my-loans" : "/loans", tone: "text-amber-400" })),
+    ...(pendingFines.length ? [{ key: "f", text: `${pendingFines.length} multa(s) pendiente(s)`, to: isUser ? "/my-loans" : "/fines", tone: "text-amber-400" }] : []),
+  ];
+
+  const submitSearch = (e) => {
+    e.preventDefault();
+    navigate(`/catalog?q=${encodeURIComponent(search)}`);
+  };
 
   return (
     <header className="h-14 flex items-center gap-4 px-4 border-b border-white/5 bg-slate-900/60 backdrop-blur-xl flex-shrink-0">
@@ -219,26 +257,41 @@ function Topbar({ onMobileMenuOpen, collapsed }) {
       </button>
 
       {/* Search bar */}
-      <div className="flex-1 max-w-md">
+      <form onSubmit={submitSearch} className="flex-1 max-w-md">
         <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar libros, usuarios..."
+            placeholder="Buscar libros por título o autor (Enter)..."
             className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/8 rounded-xl text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:bg-white/8 transition-all"
           />
         </div>
-      </div>
+      </form>
 
       {/* Right section */}
       <div className="ml-auto flex items-center gap-3">
         {/* Notifications */}
-        <button className="relative text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5">
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-        </button>
+        <div className="relative">
+          <button onClick={() => setOpenBell((v) => !v)} aria-label="Notificaciones" className="relative text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5">
+            <Bell size={18} />
+            {notifications.length > 0 && (
+              <span className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center">{notifications.length}</span>
+            )}
+          </button>
+          {openBell && (
+            <div className="absolute right-0 mt-2 w-80 glass-card bg-slate-900/95 p-2 z-50 shadow-2xl">
+              <p className="text-xs uppercase tracking-wider text-slate-500 px-2 py-1">Notificaciones</p>
+              {notifications.length === 0 && <p className="text-sm text-slate-400 px-2 py-3">No hay alertas pendientes.</p>}
+              {notifications.slice(0, 8).map((n) => (
+                <button key={n.key} onClick={() => { setOpenBell(false); navigate(n.to); }} className={`w-full text-left text-xs px-2 py-2 rounded-lg hover:bg-white/5 ${n.tone}`}>
+                  {n.text}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* User chip */}
         <div className="hidden sm:flex items-center gap-2 text-sm text-slate-300">
@@ -252,6 +305,7 @@ function Topbar({ onMobileMenuOpen, collapsed }) {
 
 // ─── Layout Principal ─────────────────────────────────────────────────────
 export default function Layout({ children }) {
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -268,7 +322,6 @@ export default function Layout({ children }) {
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar
           onMobileMenuOpen={() => setMobileOpen(true)}
-          collapsed={sidebarCollapsed}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {children}

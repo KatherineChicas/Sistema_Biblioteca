@@ -4,7 +4,9 @@ import {
   AreaChart, Area, Legend,
 } from "recharts";
 import { Download, TrendingUp, Calendar, Filter } from "lucide-react";
-import { mockChartData, mockMetrics } from "../data/mockData";
+import { useLibraryStore, computeMetrics, computeChartData, loanStatus } from "../store/useLibraryStore";
+import { useAuth } from "../context/AuthContext";
+import { exportReportPDF } from "../utils/reportPdf";
 import { useState } from "react";
 
 function CustomTooltip({ active, payload, label }) {
@@ -25,6 +27,24 @@ function CustomTooltip({ active, payload, label }) {
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState("6m");
+  const state = useLibraryStore();
+  const { user } = useAuth();
+  const mockMetrics = computeMetrics(state);
+  const mockChartData = computeChartData(state, mockMetrics);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const file = await exportReportPDF({ state, metrics: mockMetrics, chart: mockChartData, author: user?.name, loanStatus });
+      state.log(user?.name, "INFORME_EXPORTADO", file);
+      state.notify(`Informe ${file} descargado`);
+    } catch (e) {
+      state.notify("No se pudo generar el PDF: " + e.message, "error");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -48,9 +68,9 @@ export default function ReportsPage() {
               </button>
             ))}
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/8 hover:border-indigo-500/30 text-slate-300 text-sm font-medium rounded-xl transition-all">
+          <button id="export-pdf-btn" onClick={handleExport} disabled={exporting} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-all disabled:opacity-50">
             <Download size={15} />
-            Exportar PDF
+            {exporting ? "Generando..." : "Exportar PDF"}
           </button>
         </div>
       </div>
@@ -59,9 +79,9 @@ export default function ReportsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label:"Ingresos totales",  value:`L ${mockMetrics.totalRevenue.toLocaleString()}`, sub:"Este mes", color:"text-indigo-400", bg:"bg-indigo-500/10" },
-          { label:"Por ventas",        value:`L ${mockMetrics.monthlySales.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlySales/mockMetrics.totalRevenue*100)}%`, color:"text-violet-400", bg:"bg-violet-500/10" },
-          { label:"Por rentas",        value:`L ${mockMetrics.monthlyRentals.toLocaleString()}`,sub:`${Math.round(mockMetrics.monthlyRentals/mockMetrics.totalRevenue*100)}%`, color:"text-emerald-400", bg:"bg-emerald-500/10" },
-          { label:"Por multas",        value:`L ${mockMetrics.monthlyFines.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlyFines/mockMetrics.totalRevenue*100)}%`, color:"text-amber-400", bg:"bg-amber-500/10" },
+          { label:"Por ventas",        value:`L ${mockMetrics.monthlySales.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlySales/(mockMetrics.totalRevenue || 1)*100)}%`, color:"text-violet-400", bg:"bg-violet-500/10" },
+          { label:"Por rentas",        value:`L ${mockMetrics.monthlyRentals.toLocaleString()}`,sub:`${Math.round(mockMetrics.monthlyRentals/(mockMetrics.totalRevenue || 1)*100)}%`, color:"text-emerald-400", bg:"bg-emerald-500/10" },
+          { label:"Por multas",        value:`L ${mockMetrics.monthlyFines.toLocaleString()}`,  sub:`${Math.round(mockMetrics.monthlyFines/(mockMetrics.totalRevenue || 1)*100)}%`, color:"text-amber-400", bg:"bg-amber-500/10" },
         ].map((kpi) => (
           <div key={kpi.label} className={`glass-card p-4 border border-white/6`}>
             <div className={`w-9 h-9 ${kpi.bg} rounded-xl flex items-center justify-center mb-3`}>
@@ -147,7 +167,7 @@ export default function ReportsPage() {
                     <div
                       className="h-full rounded-full"
                       style={{
-                        width: `${(item.value / mockMetrics.totalRevenue) * 100}%`,
+                        width: `${(item.value / (mockMetrics.totalRevenue || 1)) * 100}%`,
                         backgroundColor: item.fill
                       }}
                     />

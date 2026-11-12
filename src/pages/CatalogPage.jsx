@@ -1,9 +1,125 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search, Filter, Star, BookOpen, ShoppingCart, Clock,
-  Eye, X, Check, AlertCircle, ChevronDown, Grid3X3, List,
+  Eye, X, Check, AlertCircle, ChevronDown, Grid3X3, List, Plus, Pencil,
 } from "lucide-react";
-import { mockBooks } from "../data/mockData";
+import { useLibraryStore } from "../store/useLibraryStore";
+import { useAuth, ROLES } from "../context/AuthContext";
+import { Modal, Field, inputCls, Button, money } from "../components/ui";
+
+// ─── Formulario de alta / edición de libro (2.1 / 2.2) ─────────────────────
+const EMPTY_BOOK = { title: "", author: "", isbn: "", genre: "Ficción", year: new Date().getFullYear(), pages: 100, price: 300, rentalPrice: 40, stock: 1, cover: "", description: "" };
+
+function BookFormModal({ book, onClose }) {
+  const [form, setForm] = useState(book ?? EMPTY_BOOK);
+  const [error, setError] = useState("");
+  const saveBook = useLibraryStore((s) => s.saveBook);
+  const notify = useLibraryStore((s) => s.notify);
+  const { user } = useAuth();
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.author.trim()) return setError("Título y autor son obligatorios.");
+    if (!/^[0-9-]{10,17}$/.test(form.isbn)) return setError("El ISBN debe tener entre 10 y 13 dígitos (se permiten guiones).");
+    if (Number(form.price) <= 0 || Number(form.rentalPrice) <= 0) return setError("Los precios deben ser mayores que cero.");
+    if (Number(form.stock) < 0) return setError("El stock no puede ser negativo.");
+    const r = saveBook(form, user?.name);
+    if (r.error) return setError(r.error);
+    notify(book ? "Libro actualizado" : `Libro "${r.title}" registrado`);
+    onClose();
+  };
+
+  return (
+    <Modal title={book ? "Editar libro" : "Registrar nuevo libro"} onClose={onClose} width="max-w-2xl">
+      <form onSubmit={submit} className="grid grid-cols-2 gap-3">
+        <div className="col-span-2"><Field label="Título *"><input className={inputCls} value={form.title} onChange={set("title")} /></Field></div>
+        <Field label="Autor *"><input className={inputCls} value={form.author} onChange={set("author")} /></Field>
+        <Field label="ISBN *" hint="Ej. 978-0-15-601219-5"><input className={inputCls} value={form.isbn} onChange={set("isbn")} /></Field>
+        <Field label="Género">
+          <select className={inputCls} value={form.genre} onChange={set("genre")}>
+            {GENRES.filter((g) => g !== "Todos").map((g) => <option key={g} className="bg-slate-800">{g}</option>)}
+          </select>
+        </Field>
+        <Field label="Año de publicación"><input type="number" className={inputCls} value={form.year} onChange={set("year")} /></Field>
+        <Field label="Páginas"><input type="number" className={inputCls} value={form.pages} onChange={set("pages")} /></Field>
+        <Field label="Copias en inventario"><input type="number" min="0" className={inputCls} value={form.stock} onChange={set("stock")} /></Field>
+        <Field label="Precio de venta (L)"><input type="number" step="0.01" className={inputCls} value={form.price} onChange={set("price")} /></Field>
+        <Field label="Precio de renta semanal (L)"><input type="number" step="0.01" className={inputCls} value={form.rentalPrice} onChange={set("rentalPrice")} /></Field>
+        <div className="col-span-2"><Field label="URL de portada (opcional)"><input className={inputCls} value={form.cover} onChange={set("cover")} /></Field></div>
+        <div className="col-span-2"><Field label="Descripción"><textarea rows={3} className={inputCls} value={form.description} onChange={set("description")} /></Field></div>
+        {error && <p className="col-span-2 text-xs text-red-400 bg-red-500/10 rounded-lg p-2.5 flex items-center gap-2"><AlertCircle size={13} />{error}</p>}
+        <div className="col-span-2 flex gap-2 justify-end mt-1">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="submit">{book ? "Guardar cambios" : "Registrar libro"}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Confirmación de compra / renta ─────────────────────────────────────────
+function PurchaseModal({ book, type, onClose }) {
+  const { user } = useAuth();
+  const users = useLibraryStore((s) => s.users);
+  const settings = useLibraryStore((s) => s.settings);
+  const purchase = useLibraryStore((s) => s.purchase);
+  const notify = useLibraryStore((s) => s.notify);
+  const isStaff = user?.role !== ROLES.USER;
+  const [buyerId, setBuyer] = useState(isStaff ? "" : String(user?.id));
+  const [error, setError] = useState("");
+  const amount = type === "rent" ? book.rentalPrice : book.price;
+
+  const confirm = () => {
+    const r = purchase(Number(buyerId), book.id, type, user?.name);
+    if (r.error) return setError(r.error);
+    notify(type === "rent" ? `Renta ${r.id} registrada. Devolver en ${settings.rentalDays} días.` : `Compra ${r.id} registrada`);
+    onClose();
+  };
+
+  return (
+    <Modal title={type === "rent" ? "Confirmar renta" : "Confirmar compra"} onClose={onClose}>
+      <div className="flex gap-3 bg-white/4 rounded-xl p-3 border border-white/8 mb-4">
+        <BookCover book={book} className="w-14 h-20" />
+        <div>
+          <p className="text-sm font-semibold text-white">{book.title}</p>
+          <p className="text-xs text-slate-400">{book.author}</p>
+          <p className="text-lg font-bold text-indigo-300 mt-1">{money(amount)}</p>
+          {type === "rent" && <p className="text-[11px] text-slate-500">Duración: {settings.rentalDays} días</p>}
+        </div>
+      </div>
+      {isStaff && (
+        <div className="mb-4">
+          <Field label="Cliente">
+            <select className={inputCls} value={buyerId} onChange={(e) => setBuyer(e.target.value)}>
+              <option value="" className="bg-slate-800">— Selecciona un usuario —</option>
+              {users.filter((u) => u.role === "usuario").map((u) => <option key={u.id} value={u.id} className="bg-slate-800">{u.name} — {u.email}</option>)}
+            </select>
+          </Field>
+        </div>
+      )}
+      {error && <p className="text-xs text-red-400 bg-red-500/10 rounded-lg p-2.5 mb-3 flex items-center gap-2"><AlertCircle size={13} />{error}</p>}
+      <div className="flex gap-2">
+        <Button variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
+        <Button variant={type === "rent" ? "success" : "primary"} className="flex-1" disabled={!buyerId} onClick={confirm}>
+          <Check size={15} /> Confirmar
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function BookCover({ book, className }) {
+  return (
+    <img
+      src={book.cover || `https://placehold.co/200x300/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0, 12))}`}
+      alt={book.title}
+      onError={(e) => { e.target.src = `https://placehold.co/200x300/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0, 2))}`; }}
+      className={`object-cover rounded-lg flex-shrink-0 ${className}`}
+    />
+  );
+}
 
 // ─── Géneros disponibles ─────────────────────────────────────────────────
 const GENRES = ["Todos", "Ficción", "Realismo Mágico", "Distopía", "Fantasía", "Historia", "Novela", "Autoayuda", "Misterio"];
@@ -56,7 +172,7 @@ function StatusBadge({ available, stock }) {
 }
 
 // ─── Modal de detalle de libro ───────────────────────────────────────────
-function BookDetailModal({ book, onClose }) {
+function BookDetailModal({ book, onClose, onAction, onEdit }) {
   const [tab, setTab] = useState("info");
   if (!book) return null;
 
@@ -79,7 +195,7 @@ function BookDetailModal({ book, onClose }) {
           <div className="flex gap-4">
             {/* Cover */}
             <img
-              src={book.cover}
+              src={book.cover || `https://placehold.co/200x300/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0, 12))}`}
               alt={book.title}
               onError={(e) => { e.target.src = `https://placehold.co/80x120/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0,2))}`; }}
               className="w-20 h-28 object-cover rounded-xl shadow-2xl border border-white/10 flex-shrink-0"
@@ -133,9 +249,15 @@ function BookDetailModal({ book, onClose }) {
 
           {/* CTA Buttons */}
           <div className="flex gap-3 mt-5">
+            {onEdit && (
+              <button onClick={() => onEdit(book)} className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 hover:bg-white/10 text-slate-200 font-semibold rounded-xl border border-white/10">
+                <Pencil size={15} /> Editar
+              </button>
+            )}
             {book.canRent && book.available > 0 && (
               <button
                 id={`rent-btn-${book.id}`}
+                onClick={() => onAction(book, "rent")}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
               >
                 <Clock size={16} />
@@ -145,6 +267,8 @@ function BookDetailModal({ book, onClose }) {
             {book.canBuy && (
               <button
                 id={`buy-btn-${book.id}`}
+                onClick={() => onAction(book, "buy")}
+                disabled={book.available === 0}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20"
               >
                 <ShoppingCart size={16} />
@@ -159,13 +283,13 @@ function BookDetailModal({ book, onClose }) {
 }
 
 // ─── Tarjeta de Libro (Grid) ─────────────────────────────────────────────
-function BookCard({ book, onView }) {
+function BookCard({ book, onView, onAction }) {
   return (
     <div className="glass-card overflow-hidden flex flex-col hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 group animate-fade-in-up">
       {/* Cover */}
       <div className="relative overflow-hidden h-48 bg-slate-800">
         <img
-          src={book.cover}
+          src={book.cover || `https://placehold.co/200x300/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0, 12))}`}
           alt={book.title}
           onError={(e) => {
             e.target.src = `https://placehold.co/200x280/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0,2))}`;
@@ -226,6 +350,7 @@ function BookCard({ book, onView }) {
         <div className="grid grid-cols-2 gap-2">
           <button
             id={`card-rent-${book.id}`}
+            onClick={() => onAction(book, "rent")}
             disabled={!book.canRent || book.available === 0}
             className="flex items-center justify-center gap-1.5 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-xs font-semibold rounded-lg border border-emerald-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -234,7 +359,8 @@ function BookCard({ book, onView }) {
           </button>
           <button
             id={`card-buy-${book.id}`}
-            disabled={!book.canBuy}
+            onClick={() => onAction(book, "buy")}
+            disabled={!book.canBuy || book.available === 0}
             className="flex items-center justify-center gap-1.5 py-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white text-xs font-semibold rounded-lg border border-indigo-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ShoppingCart size={12} />
@@ -247,11 +373,11 @@ function BookCard({ book, onView }) {
 }
 
 // ─── Fila de Libro (List view) ───────────────────────────────────────────
-function BookRow({ book, onView }) {
+function BookRow({ book, onView, onAction }) {
   return (
     <div className="glass-card p-4 flex items-center gap-4 hover:border-indigo-500/30 transition-all duration-200 group">
       <img
-        src={book.cover}
+        src={book.cover || `https://placehold.co/200x300/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0, 12))}`}
         alt={book.title}
         onError={(e) => { e.target.src = `https://placehold.co/48x64/1e293b/6366f1?text=${encodeURIComponent(book.title.slice(0,2))}`; }}
         className="w-12 h-16 object-cover rounded-lg flex-shrink-0"
@@ -282,12 +408,15 @@ function BookRow({ book, onView }) {
           <Eye size={16} />
         </button>
         <button
+          onClick={() => onAction(book, "rent")}
           disabled={!book.canRent || book.available === 0}
           className="py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-xs font-semibold rounded-lg border border-emerald-500/30 transition-all disabled:opacity-40"
         >
           Rentar
         </button>
         <button
+          onClick={() => onAction(book, "buy")}
+          disabled={book.available === 0}
           className="py-2 px-3 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white text-xs font-semibold rounded-lg border border-indigo-500/30 transition-all"
         >
           Comprar
@@ -299,7 +428,13 @@ function BookRow({ book, onView }) {
 
 // ─── CatalogPage Principal ────────────────────────────────────────────────
 export default function CatalogPage() {
-  const [search, setSearch]           = useState("");
+  const [params] = useSearchParams();
+  const [search, setSearch]           = useState(params.get("q") ?? "");
+  const mockBooks = useLibraryStore((s) => s.books);
+  const { user } = useAuth();
+  const isStaff = user?.role !== ROLES.USER;
+  const [action, setAction]   = useState(null); // { book, type }
+  const [editing, setEditing] = useState(null); // libro | "new"
   const [selectedGenre, setGenre]     = useState("Todos");
   const [sortBy, setSortBy]           = useState("rating");
   const [viewMode, setViewMode]       = useState("grid"); // "grid" | "list"
@@ -325,11 +460,16 @@ export default function CatalogPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-1">Catálogo de Libros</h1>
-        <p className="text-slate-400 text-sm">
-          {filtered.length} libros disponibles · Explora y renta o compra tus favoritos
-        </p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-1">Catálogo de Libros</h1>
+          <p className="text-slate-400 text-sm">
+            {filtered.length} libros disponibles · Explora y renta o compra tus favoritos
+          </p>
+        </div>
+        {isStaff && (
+          <Button id="new-book-btn" onClick={() => setEditing("new")}><Plus size={16} /> Nuevo libro</Button>
+        )}
       </div>
 
       {/* Search & Filters Bar */}
@@ -421,22 +561,29 @@ export default function CatalogPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtered.map((book, i) => (
             <div key={book.id} style={{ animationDelay: `${i * 50}ms` }}>
-              <BookCard book={book} onView={setSelectedBook} />
+              <BookCard book={book} onView={setSelectedBook} onAction={(b, t) => setAction({ book: b, type: t })} />
             </div>
           ))}
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((book) => (
-            <BookRow key={book.id} book={book} onView={setSelectedBook} />
+            <BookRow key={book.id} book={book} onView={setSelectedBook} onAction={(b, t) => setAction({ book: b, type: t })} />
           ))}
         </div>
       )}
 
       {/* Book Detail Modal */}
       {selectedBook && (
-        <BookDetailModal book={selectedBook} onClose={() => setSelectedBook(null)} />
+        <BookDetailModal
+          book={mockBooks.find((b) => b.id === selectedBook.id) ?? selectedBook}
+          onClose={() => setSelectedBook(null)}
+          onAction={(b, t) => { setSelectedBook(null); setAction({ book: b, type: t }); }}
+          onEdit={isStaff ? (b) => { setSelectedBook(null); setEditing(b); } : null}
+        />
       )}
+      {action && <PurchaseModal book={action.book} type={action.type} onClose={() => setAction(null)} />}
+      {editing && <BookFormModal book={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

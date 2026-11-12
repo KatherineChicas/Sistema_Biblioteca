@@ -8,7 +8,8 @@ import {
   ArrowUpRight, ArrowDownRight, Clock, ShoppingCart,
   CheckCircle2, Activity,
 } from "lucide-react";
-import { mockMetrics, mockChartData, mockActivity, mockLoans } from "../data/mockData";
+import { useNavigate } from "react-router-dom";
+import { useLibraryStore, computeMetrics, computeChartData, computeActivity, loanStatus, daysOverdue } from "../store/useLibraryStore";
 import { useAuth } from "../context/AuthContext";
 
 // ─── Metric Card ─────────────────────────────────────────────────────────
@@ -124,40 +125,47 @@ function OverdueLoanRow({ loan }) {
 // ─── DashboardPage ────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
-  const overdueLoans = mockLoans.filter((l) => l.status === "overdue");
+  const navigate = useNavigate();
+  const state = useLibraryStore();
+  const mockMetrics = computeMetrics(state);
+  const mockChartData = computeChartData(state, mockMetrics);
+  const mockActivity = computeActivity(state);
+  const overdueLoans = state.loans
+    .filter((l) => loanStatus(l) === "overdue")
+    .map((l) => ({ ...l, daysOverdue: daysOverdue(l), fine: daysOverdue(l) * state.settings.fineRate }));
 
   const metrics = [
     {
       icon: BookOpen,  label: "Total Libros",     value: mockMetrics.totalBooks.toLocaleString(),
-      subtitle: "+12 este mes",   trend: "+2.3%", trendUp: true,  color: "indigo",  delay: 0,
+      subtitle: `${mockMetrics.titles} títulos registrados`, trend: null, trendUp: true,  color: "indigo",  delay: 0,
     },
     {
       icon: BookMarked, label: "Préstamos Activos", value: mockMetrics.activeLoans,
-      subtitle: "En circulación",  trend: "+8.1%", trendUp: true,  color: "emerald", delay: 100,
+      subtitle: "En circulación",  trend: null, trendUp: true,  color: "emerald", delay: 100,
     },
     {
       icon: Users,     label: "Usuarios Activos",  value: mockMetrics.activeUsers,
-      subtitle: "+28 este mes",    trend: "+5.4%", trendUp: true,  color: "violet",  delay: 200,
+      subtitle: `+${mockMetrics.newUsersThisMonth} este mes`, trend: null, trendUp: true,  color: "violet",  delay: 200,
     },
     {
       icon: AlertTriangle, label: "Préstamos Vencidos", value: mockMetrics.overdueLoans,
-      subtitle: "Requieren atención", trend: "-12%", trendUp: false, color: "red",   delay: 300,
+      subtitle: "Requieren atención", trend: null, trendUp: false, color: "red",   delay: 300,
     },
     {
       icon: DollarSign, label: "Ingresos Ventas",  value: `L ${mockMetrics.monthlySales.toLocaleString()}`,
-      subtitle: "Este mes",        trend: "+15%",  trendUp: true,  color: "indigo",  delay: 400,
+      subtitle: "Este mes",        trend: null,  trendUp: true,  color: "indigo",  delay: 400,
     },
     {
       icon: Clock,     label: "Ingresos Rentas",   value: `L ${mockMetrics.monthlyRentals.toLocaleString()}`,
-      subtitle: "Este mes",        trend: "+7.2%", trendUp: true,  color: "sky",     delay: 500,
+      subtitle: "Este mes",        trend: null, trendUp: true,  color: "sky",     delay: 500,
     },
     {
       icon: TrendingUp, label: "Multas Cobradas",  value: `L ${mockMetrics.monthlyFines.toLocaleString()}`,
-      subtitle: "Este mes",        trend: "-5%",   trendUp: false, color: "amber",   delay: 600,
+      subtitle: `Pendiente: L ${mockMetrics.pendingFines.toLocaleString()}`, trend: null, trendUp: false, color: "amber",   delay: 600,
     },
     {
       icon: RotateCcw, label: "Devoluciones",      value: mockMetrics.returnsThisMonth,
-      subtitle: "Este mes",        trend: "+3.8%", trendUp: true,  color: "emerald", delay: 700,
+      subtitle: "Este mes",        trend: null, trendUp: true,  color: "emerald", delay: 700,
     },
   ];
 
@@ -272,9 +280,10 @@ export default function DashboardPage() {
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-white">Actividad Reciente</h2>
-            <span className="text-xs text-indigo-400 cursor-pointer hover:text-indigo-300">Ver todo</span>
+            <button onClick={() => navigate("/admin")} className="text-xs text-indigo-400 cursor-pointer hover:text-indigo-300">Ver todo</button>
           </div>
           <div>
+            {mockActivity.length === 0 && <p className="text-xs text-slate-500 py-4">Aún no hay operaciones registradas.</p>}
             {mockActivity.map((item) => (
               <ActivityItem key={item.id} item={item} />
             ))}

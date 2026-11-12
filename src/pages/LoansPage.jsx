@@ -3,7 +3,9 @@ import {
   Search, Plus, BookOpen, Clock, CheckCircle2, AlertTriangle,
   User, Calendar, Hash, ChevronDown, Filter, Eye,
 } from "lucide-react";
-import { mockLoans, mockBooks, mockUsers } from "../data/mockData";
+import { useLibraryStore, loanStatus, daysOverdue } from "../store/useLibraryStore";
+import { useAuth } from "../context/AuthContext";
+import { Modal, Button, money } from "../components/ui";
 
 const STATUS_CONFIG = {
   active:   { label: "Activo",     color: "text-indigo-400",  bg: "bg-indigo-500/10",  border: "border-indigo-500/20"  },
@@ -28,6 +30,24 @@ function NewLoanModal({ onClose }) {
   const [step, setStep]   = useState(1);
   const [userId, setUser] = useState("");
   const [bookId, setBook] = useState("");
+  const [error, setError] = useState("");
+  const mockUsers = useLibraryStore((s) => s.users);
+  const allBooks  = useLibraryStore((s) => s.books);
+  const loans     = useLibraryStore((s) => s.loans);
+  const mockBooks = allBooks.filter((b) => !loans.some((l) => l.bookId === b.id && String(l.userId) === userId && !l.returnDate));
+  const settings  = useLibraryStore((s) => s.settings);
+  const canBorrow = useLibraryStore((s) => s.canBorrow);
+  const createLoan = useLibraryStore((s) => s.createLoan);
+  const notify = useLibraryStore((s) => s.notify);
+  const { user } = useAuth();
+  const eligibility = userId ? canBorrow(Number(userId)) : null;
+
+  const handleConfirm = () => {
+    const res = createLoan(Number(userId), Number(bookId), user?.name);
+    if (res.error) { setError(res.error); return; }
+    notify(`Préstamo ${res.id} registrado. Vence el ${res.dueDate}.`);
+    onClose();
+  };
 
   const selectedUser = mockUsers.find((u) => String(u.id) === userId);
   const selectedBook = mockBooks.find((b) => String(b.id) === bookId);
@@ -89,6 +109,12 @@ function NewLoanModal({ onClose }) {
                     <p className="text-sm font-bold text-indigo-400">{selectedUser.loans}</p>
                   </div>
                 </div>
+                {eligibility && !eligibility.ok && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-red-400 bg-red-500/10 rounded-lg p-2">
+                    <AlertTriangle size={12} />
+                    No puede recibir préstamos: {eligibility.reason}
+                  </div>
+                )}
                 {selectedUser.fines > 0 && (
                   <div className="mt-3 flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 rounded-lg p-2">
                     <AlertTriangle size={12} />
@@ -99,7 +125,7 @@ function NewLoanModal({ onClose }) {
             )}
             <button
               onClick={() => setStep(2)}
-              disabled={!userId}
+              disabled={!userId || !eligibility?.ok}
               className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               Siguiente →
@@ -123,7 +149,7 @@ function NewLoanModal({ onClose }) {
             </select>
             {selectedBook && (
               <div className="bg-white/4 rounded-xl p-4 border border-white/8 flex gap-3">
-                <img src={selectedBook.cover} alt={selectedBook.title}
+                <img src={selectedBook.cover || "https://placehold.co/48x64/1e293b/6366f1?text=Libro"} alt={selectedBook.title}
                   onError={(e) => { e.target.src = `https://placehold.co/48x64/1e293b/6366f1?text=${encodeURIComponent(selectedBook.title.slice(0,2))}`; }}
                   className="w-12 h-16 object-cover rounded-lg"
                 />
@@ -151,14 +177,19 @@ function NewLoanModal({ onClose }) {
 
         {step === 3 && (
           <div className="space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 rounded-lg p-3">
+                <AlertTriangle size={12} /> {error}
+              </div>
+            )}
             <div className="bg-white/4 rounded-xl p-4 border border-white/8 space-y-2">
               <p className="text-sm font-medium text-slate-300 mb-3">Resumen del Préstamo</p>
               {[
                 { label: "Usuario", value: selectedUser?.name, icon: User },
                 { label: "Libro",   value: selectedBook?.title, icon: BookOpen },
                 { label: "Fecha préstamo", value: new Date().toLocaleDateString("es-MX"), icon: Calendar },
-                { label: "Fecha devolución", value: new Date(Date.now() + 14*86400000).toLocaleDateString("es-MX"), icon: Calendar },
-                { label: "Folio",   value: `L-${Date.now().toString().slice(-6)}`, icon: Hash },
+                { label: "Fecha devolución", value: new Date(Date.now() + settings.loanDays*86400000).toLocaleDateString("es-MX"), icon: Calendar },
+                { label: "Duración", value: `${settings.loanDays} días`, icon: Hash },
               ].map((f) => (
                 <div key={f.label} className="flex items-center gap-3">
                   <f.icon size={14} className="text-slate-500 flex-shrink-0" />
@@ -173,7 +204,7 @@ function NewLoanModal({ onClose }) {
               </button>
               <button
                 id="confirm-loan-btn"
-                onClick={onClose}
+                onClick={handleConfirm}
                 className="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/25"
               >
                 ✓ Confirmar Préstamo
@@ -187,10 +218,49 @@ function NewLoanModal({ onClose }) {
 }
 
 // ─── LoansPage ────────────────────────────────────────────────────────────
+// Modal – Detalle de préstamo con renovación
+function LoanDetailModal({ loan, onClose }) {
+  const renewLoan = useLibraryStore((s) => s.renewLoan);
+  const notify = useLibraryStore((s) => s.notify);
+  const { user } = useAuth();
+  const status = loanStatus(loan);
+  const rows = [
+    ["Folio", loan.id], ["Tipo", loan.type === "rent" ? "Renta" : "Préstamo"],
+    ["Usuario", loan.userName], ["Libro", loan.bookTitle], ["Autor", loan.bookAuthor],
+    ["Fecha de préstamo", loan.loanDate], ["Fecha de vencimiento", loan.dueDate],
+    ["Fecha de devolución", loan.returnDate ?? "—"], ["Días de atraso", daysOverdue(loan)],
+    ["Renovaciones", loan.renewals ?? 0], ["Cargo cobrado", loan.fine ? money(loan.fine) : "—"],
+  ];
+  return (
+    <Modal title={`Préstamo ${loan.id}`} onClose={onClose}>
+      <div className="mb-4"><StatusPill status={status} /></div>
+      <div className="grid grid-cols-2 gap-2 mb-5">
+        {rows.map(([k, v]) => (
+          <div key={k} className="bg-white/4 rounded-xl p-3">
+            <p className="text-[11px] text-slate-500">{k}</p>
+            <p className="text-sm text-slate-200 font-medium truncate">{v}</p>
+          </div>
+        ))}
+      </div>
+      {status === "active" && (
+        <Button className="w-full" onClick={() => {
+          const r = renewLoan(loan.id, user?.name);
+          if (r.error) notify(r.error, "error"); else { notify(`Renovado hasta el ${r.dueDate}`); onClose(); }
+        }}>Renovar préstamo</Button>
+      )}
+    </Modal>
+  );
+}
+
 export default function LoansPage() {
   const [search, setSearch]     = useState("");
   const [filter, setFilter]     = useState("all");
   const [showModal, setModal]   = useState(false);
+  const [detail, setDetail]     = useState(null);
+  const fineRate = useLibraryStore((s) => s.settings.fineRate);
+  const mockLoans = useLibraryStore((s) => s.loans).map((l) => ({
+    ...l, status: loanStatus(l), fine: l.returnDate ? l.fine : daysOverdue(l) * fineRate,
+  }));
 
   const filtered = mockLoans.filter((l) => {
     const matchSearch = l.userName.toLowerCase().includes(search.toLowerCase())
@@ -309,7 +379,7 @@ export default function LoansPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <button className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-all">
+                    <button onClick={() => setDetail(loan)} aria-label="Ver detalle" className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-all">
                       <Eye size={14} />
                     </button>
                   </td>
@@ -327,6 +397,7 @@ export default function LoansPage() {
       </div>
 
       {showModal && <NewLoanModal onClose={() => setModal(false)} />}
+      {detail && <LoanDetailModal loan={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
