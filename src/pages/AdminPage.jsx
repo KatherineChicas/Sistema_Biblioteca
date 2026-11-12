@@ -106,7 +106,7 @@ function BackupPanel() {
         <div className="glass-card p-5">
           <RotateCcw className="text-red-400 mb-2" size={22} />
           <h3 className="text-sm font-semibold text-white mb-1">Reiniciar datos de demo</h3>
-          <p className="text-xs text-slate-400 mb-4">Vuelve al estado inicial. Útil antes de una presentación.</p>
+          <p className="text-xs text-slate-400 mb-4">Vuelve al estado inicial. Útil antes de una presentación. Con la base de datos en la nube, afecta a todos los usuarios.</p>
           <Button variant="danger" onClick={() => setConfirmReset(true)} className="w-full">Reiniciar</Button>
         </div>
       </div>

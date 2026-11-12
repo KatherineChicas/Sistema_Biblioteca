@@ -227,6 +227,7 @@ function Topbar({ onMobileMenuOpen }) {
   const navigate = useNavigate();
   const loans = useLibraryStore((s) => s.loans);
   const fines = useLibraryStore((s) => s.fines);
+  const remoteOn = useLibraryStore((s) => s.remote.status === "ready");
   const isUser = user?.role === ROLES.USER;
   const myLoans = isUser ? loans.filter((l) => l.userId === user.id) : loans;
   const overdue = myLoans.filter((l) => loanStatus(l) === "overdue");
@@ -272,6 +273,13 @@ function Topbar({ onMobileMenuOpen }) {
 
       {/* Right section */}
       <div className="ml-auto flex items-center gap-3">
+        <span
+          title={remoteOn ? "Los datos se guardan en Supabase y se comparten con todos" : "Los datos se guardan solo en este navegador"}
+          className={`hidden md:inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border ${remoteOn ? "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" : "text-slate-400 border-white/10 bg-white/5"}`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${remoteOn ? "bg-emerald-400" : "bg-slate-500"}`} />
+          {remoteOn ? "Base de datos en la nube" : "Modo local"}
+        </span>
         {/* Notifications */}
         <div className="relative">
           <button onClick={() => setOpenBell((v) => !v)} aria-label="Notificaciones" className="relative text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5">

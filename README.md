@@ -13,6 +13,22 @@ npm run dev      # desarrollo en http://localhost:5173
 npm run build    # build de producción en dist/
 ```
 
+## Base de datos en la nube (Supabase)
+
+El sistema puede funcionar en dos modos:
+
+- **Modo local:** sin configuración, los datos se guardan en el navegador (localStorage).
+- **Modo nube:** con Supabase, todos comparten los mismos datos y los cambios se ven en tiempo real.
+
+Para activar el modo nube:
+
+1. En Supabase › **SQL Editor**, ejecutar el script `supabase/schema.sql`.
+2. Copiar `.env.example` como `.env` y pegar la URL del proyecto y la clave pública (anon).
+3. Reiniciar `npm run dev`. La primera vez la aplicación carga los datos de demostración en la base.
+4. En Vercel: **Settings › Environment Variables**, agregar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` y volver a desplegar.
+
+El archivo `.env` no se sube a GitHub (está en `.gitignore`).
+
 ## Usuarios de prueba
 
 | Rol           | Correo                  | Contraseña |
@@ -28,7 +44,8 @@ src/
 ├── pages/        Capa de presentación (una página por módulo)
 ├── components/   Layout y componentes de UI reutilizables (Modal, Table, Button, Toaster…)
 ├── context/      AuthContext: sesión y control de acceso por rol
-├── store/        useLibraryStore: lógica de negocio + persistencia (Zustand + localStorage)
+├── store/        useLibraryStore: lógica de negocio · remoteSync: sincronización con Supabase
+├── lib/          Cliente de Supabase
 ├── utils/        reportPdf: generación del informe en PDF
 └── data/         Datos semilla de demostración
 ```
@@ -53,5 +70,5 @@ que validan las reglas de negocio y registran cada operación en la bitácora de
 
 ## Trabajo pendiente
 
-- Backend real (API REST + base de datos) que reemplace la persistencia local.
-- Autenticación con contraseñas cifradas y envío real de correos de recuperación.
+- Restringir las políticas de acceso (RLS) de Supabase, hoy la clave pública puede leer y escribir todo.
+- Autenticación con Supabase Auth (contraseñas cifradas) y envío real de correos de recuperación.

@@ -5,6 +5,9 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { mockBooks, mockUsers, mockChartData } from "../data/mockData";
+import { isRemote } from "../lib/supabase";
+
+const newId = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 // ─── Utilidades de fecha ──────────────────────────────────────────────────
 const DAY = 86400000;
@@ -95,7 +98,7 @@ function seedFines() {
   ];
 }
 
-function buildInitialState() {
+export function buildInitialState() {
   const users = seedUsers();
   const loans = seedLoans();
   const books = mockBooks.map((b) => ({ ...b }));
@@ -112,7 +115,7 @@ function buildInitialState() {
     fines: seedFines(),
     settings: { ...DEFAULT_SETTINGS },
     audit: [
-      { id: 1, date: new Date(Date.now() - 2 * 3600000).toISOString(), actor: "Sistema", action: "INIT", detail: "Base de datos inicializada con datos de demostración" },
+      { id: "init", date: new Date(Date.now() - 2 * 3600000).toISOString(), actor: "Sistema", action: "INIT", detail: "Base de datos inicializada con datos de demostración" },
     ],
     counters: { loan: 6, sale: 4, fine: 3, user: 7, book: 9, audit: 2 },
   };
@@ -128,6 +131,8 @@ export const useLibraryStore = create(
 
       // Notificaciones tipo toast (no se persisten)
       toasts: [],
+      // Estado de la conexión con la base de datos en la nube (no se persiste)
+      remote: { enabled: isRemote, status: isRemote ? "loading" : "off", error: null },
       notify: (message, kind = "success") => {
         const id = Date.now() + Math.random();
         set((s) => ({ toasts: [...s.toasts, { id, message, kind }] }));
@@ -138,10 +143,9 @@ export const useLibraryStore = create(
       log: (actor, action, detail) =>
         set((s) => ({
           audit: [
-            { id: s.counters.audit, date: new Date().toISOString(), actor: actor ?? "Sistema", action, detail },
+            { id: newId(), date: new Date().toISOString(), actor: actor ?? "Sistema", action, detail },
             ...s.audit,
           ].slice(0, 500),
-          counters: { ...s.counters, audit: s.counters.audit + 1 },
         })),
 
       // ── Libros (2.1 / 2.2) ─────────────────────────────────────────────
@@ -374,8 +378,9 @@ export const useLibraryStore = create(
       name: "bibliosys-db",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => {
-        // eslint-disable-next-line no-unused-vars
-        const { toasts, ...rest } = s;
+                const { toasts, remote, ...rest } = s;
+        // Con Supabase activo los datos viven en la nube: no se guardan en el navegador
+        if (isRemote) return {};
         return Object.fromEntries(Object.entries(rest).filter(([, v]) => typeof v !== "function"));
       },
     }
